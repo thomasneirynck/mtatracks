@@ -20,7 +20,7 @@ const argv = yargs
     })
     .option('frequency', {
         alias: 'f',
-        description: `Update delta of the tracks in ms`,
+        description: `Update delta of the tracks in ms. Cannot be smaller than ${MAX_UPDATE_DELTA}`,
         type: 'number',
         default: DEFAULT_UPDATE_DELTA,
     })
