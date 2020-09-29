@@ -7,9 +7,9 @@ Install dependencies:
 
 Generate tracks:
 
-> node ./generate_tracks.js -a YOU_API_KEY
+> node ./load_tracks.js -a YOUR_API_KEY
 
 
 Show docs:
 
-> node ./generate_tracks.js --help
+> node ./load_tracks.js --help
