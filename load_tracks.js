@@ -86,6 +86,9 @@ async function recreateIndex() {
                         },
                         "@timestamp": {
                             "type": "date"
+                        },
+                        "index_time": {
+                            "type": "date"
                         }
                     }
                 }
@@ -172,8 +175,6 @@ async function loadTracks() {
 async function getBusses() {
 
     const uri = `${MTA_SIRI_URL}?key=${apiKey}`;
-    console.log(uri);
-
     const options = {
         uri: uri,
         headers: {
@@ -195,6 +196,7 @@ async function getBusses() {
             bearing: (vehicle.MonitoredVehicleJourney.Bearing * -1) + 90, // hack to use 2D semantics (probable bug in maps https://github.com/elastic/kibana/issues/77496)
             vehicle_ref: vehicle.MonitoredVehicleJourney.VehicleRef,
             ["@timestamp"]: vehicle.RecordedAtTime,
+            index_time: (new Date()).toISOString()
         };
     });
 
