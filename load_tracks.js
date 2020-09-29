@@ -1,16 +1,15 @@
 const {Client} = require('@elastic/elasticsearch');
-const fs = require('fs');
 const readline = require('readline');
-const turf = require('@turf/turf');
-const yargs = require('yargs')
+const yargs = require('yargs');
+const rp = require('request-promise-native');
 
 
-const DEFAULT_TRACKS_JSON = 'manhattan_tracks.json';
-const DEFAULT_INDEX_NAME = 'tracks';
-const DEFAULT_UPDATE_DELTA = 1000; //ms
-const DEFAULT_SPEED = 40; //mph
-const DEFAULT_HOST = `https://localhost:9200`;
-const distanceUnit = 'miles';
+const DEFAULT_INDEX_NAME = 'mtatracks';
+const DEFAULT_UPDATE_DELTA = 5000; //ms
+const MAX_UPDATE_DELTA = 5000; //ms
+const DEFAULT_HOST = `http://localhost:9200`;
+const DEFAULT_API_KEY = 'YOUR_API_KEY';
+const MTA_SIRI_URL = `http://api.prod.obanyc.com/api/siri/vehicle-monitoring.json`;
 
 const argv = yargs
     .option('index', {
@@ -31,11 +30,18 @@ const argv = yargs
         type: 'string',
         default: DEFAULT_HOST,
     })
+    .option('apikey', {
+        alias: 'a',
+        description: 'API Key',
+        type: 'string',
+        default: DEFAULT_API_KEY,
+    })
     .help()
     .argv;
 
 const tracksIndexName = argv.index;
-const updateDelta = argv.frequency; //milliseconds
+const updateDelta = Math.max(argv.frequency, MAX_UPDATE_DELTA); //milliseconds
+const apiKey = argv.apikey;
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -54,18 +60,14 @@ const esClient = new Client({
 });
 
 async function init() {
-    initTrackMeta();
     await setupIndex();
-    generateWaypoints();
+    loadTracks();
 }
 
 init();
 
-function initTrackMeta() {
-}
-
 async function recreateIndex() {
-    console.log(`Create index "${tracksIndexName}"`);
+    console.log(`Create index ${tracksIndexName}`);
     try {
         await esClient.indices.create({
             index: tracksIndexName,
@@ -76,13 +78,10 @@ async function recreateIndex() {
                             "type": 'geo_point',
                             "ignore_malformed": true
                         },
-                        "entity_id": {
+                        "vehicle_ref": {
                             "type": "keyword"
                         },
-                        "azimuth": {
-                            "type": "double"
-                        },
-                        "speed": {
+                        "bearing": {
                             "type": "double"
                         },
                         "@timestamp": {
@@ -143,12 +142,60 @@ async function setupIndex() {
 
 let tickCounter = 0;
 
-async function generateWaypoints() {
+async function loadTracks() {
+    console.log(`[${tickCounter}-------------- LOAD TRACKS`);
+    try {
+        const busses = await getBusses();
 
-    console.log(`[${tickCounter}-------------- GENERATE ${tracksFeatureCollection.features.length} WAYPOINTS AT TICK ${(new Date()).toISOString()}`);
 
+        const bulkInsert = [];
+        for (let i = 0; i < busses.length; i++) {
+            bulkInsert.push({
+                index: {
+                    _index: tracksIndexName,
+                }
+            });
+            bulkInsert.push(busses[i]);
+        }
 
+        await esClient.bulk({
+            body: bulkInsert
+        });
+    } catch (e) {
+        console.log('Cannot load tracks');
+        console.error(e);
+    }
     tickCounter++;
-    setTimeout(generateWaypoints, updateDelta);
+    setTimeout(loadTracks, updateDelta);
+}
+
+async function getBusses() {
+
+    const uri = `${MTA_SIRI_URL}?key=${apiKey}`;
+    console.log(uri);
+
+    const options = {
+        uri: uri,
+        headers: {
+            'User-Agent': 'Request-Promise'
+        },
+        json: true
+    };
+    const response = await rp(options);
+
+    const vehicles = response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity;
+    console.log(`nr of vehicles ${vehicles.length}`);
+
+    return vehicles.map((vehicle) => {
+        return {
+            location: {
+                lon: vehicle.MonitoredVehicleJourney.VehicleLocation.Longitude,
+                lat: vehicle.MonitoredVehicleJourney.VehicleLocation.Latitude
+            },
+            bearing: (vehicle.MonitoredVehicleJourney.Bearing * -1) + 90, // hack to use 2D semantics (probable bug in maps https://github.com/elastic/kibana/issues/77496)
+            vehicle_ref: vehicle.MonitoredVehicleJourney.VehicleRef,
+            ["@timestamp"]: vehicle.RecordedAtTime,
+        };
+    });
 
 }
