@@ -1,0 +1,17 @@
+{
+  "name": "mtatracks",
+  "version": "1.0.0",
+  "description": "",
+  "main": "load_tracks.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@elastic/elasticsearch": "^7.9.1",
+    "@turf/turf": "^5.1.6",
+    "readline": "^1.3.0",
+    "yargs": "^16.0.3"
+  }
+}
