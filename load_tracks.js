@@ -7,7 +7,7 @@ const rp = require('request-promise-native');
 const DEFAULT_INDEX_NAME = 'mtatracks';
 const DEFAULT_UPDATE_DELTA = 5000; //ms
 const MAX_UPDATE_DELTA = 5000; //ms
-const DEFAULT_HOST = `http://localhost:9200`;
+const DEFAULT_HOST = `https://localhost:9200`;
 const DEFAULT_API_KEY = 'YOUR_API_KEY';
 const MTA_SIRI_URL = `http://api.prod.obanyc.com/api/siri/vehicle-monitoring.json`;
 
